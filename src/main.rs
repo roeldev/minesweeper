@@ -1,70 +1,91 @@
+use std::ops::Deref;
+
 use bevy::prelude::*;
+use bevy::render::texture::ImageType;
 use bevy::sprite::Rect;
 use bevy::window::{WindowId, WindowResized};
 use bevy::winit::WinitWindows;
 
-use crate::game::grid::{Tile, TileAssets};
+use crate::game::grid;
+use crate::game::ui::UiComponent;
 
 mod game;
 mod utils;
+mod load;
 
 fn main() {
-    App::new()
-        .insert_resource(ClearColor(Color::hex("c8c8c8").unwrap()))
-        .insert_resource(WindowDescriptor {
-            title: "Minesweeper".to_string(),
-            width: 1.,
-            height: 1.,
-            resizable: false,
-            cursor_visible: true,
-            scale_factor_override: Some(1.),
-            ..default()
-        })
-        .add_plugins(DefaultPlugins)
-        .add_startup_system(setup_window)
-        .add_startup_system(setup_game)
-        .add_system(bevy::input::system::exit_on_esc_system)
-        .add_system(center_camera_on_resize)
-        .add_plugin(game::GamePlugin)
-        .run();
+    let mut app = App::new();
+    app.insert_resource(ClearColor(Color::hex("c8c8c8").unwrap()));
+    app.insert_resource(WindowDescriptor {
+        title: "Minesweeper".to_string(),
+        width: 1.,
+        height: 1.,
+        position: Some(Vec2::splat(10000.)),
+        resizable: false,
+        cursor_visible: true,
+        scale_factor_override: Some(1.),
+        ..default()
+    });
+    app.add_plugins(DefaultPlugins);
+    app.add_plugin(load::LoadAssetsPlugin);
+    app.add_system_set(
+        SystemSet::on_enter(load::LoadState::Loaded)
+            .with_system(start_game)
+    );
+    app.add_startup_system(setup);
+    app.add_system(bevy::input::system::exit_on_esc_system);
+    app.add_system(center_camera_on_resize);
+    app.add_plugin(game::GamePlugin);
+    app.run();
 }
 
-fn setup_window(winit: NonSend<WinitWindows>) {
-    let window = winit.get_window(WindowId::primary())
-        .expect("Primary winit window does not exist");
-
-    let _ = bevy_icon::set_window_icon(window, include_bytes!("../icon.png"), "png");
-}
-
-fn setup_game(
+fn setup(
     mut cmd: Commands,
-    mut state: ResMut<State<game::GameState>>,
+    winit: NonSend<WinitWindows>,
     asset_server: Res<AssetServer>,
-    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+    mut load_assets: ResMut<load::LoadAssets>,
 ) {
+    // window icon
+    let _ = bevy_window_icon::set_from_data(
+        winit.get_window(WindowId::primary()).expect("Primary winit window does not exist"),
+        include_bytes!("../icon.png"),
+        ImageType::Extension("png"),
+    );
+
     // camera
     cmd.spawn_bundle(OrthographicCameraBundle::new_2d());
 
-    // tiles
-    let tile_size = Vec2::splat(24.);
-    let tiles_textures = TextureAtlas::from_grid(
-        asset_server.load("tiles.png"),
-        tile_size,
-        Tile::all().len(),
-        1,
-    );
-    cmd.insert_resource(TileAssets::new(
-        tile_size,
-        texture_atlases.add(tiles_textures),
-    ));
+    // grid tiles
+    let tile_image = asset_server.load::<Image, _>("tiles.png");
+    load_assets.push(tile_image.clone_untyped());
 
     // ui
-    // let mut sprites_textures = TextureAtlas::new_empty(asset_server.load("sprites.png"), Vec2::ZERO);
-    // let sprites = vec![
-    //     (game::SpriteKind::SmileyButton, sprites_textures.add_texture(rect(0., 16., 26., 42.))),
-    // ];
-    //
-    // cmd.insert_resource(SpritesBuilder::new(slicer.sprites, texture_atlases.add(slicer.texture_atlas)));
+    let ui_image = asset_server.load::<Image, _>("ui.png");
+    load_assets.push(ui_image.clone_untyped());
+}
+
+fn start_game(
+    mut cmd: Commands,
+    mut state: ResMut<State<game::GameState>>,
+    tile_size: Res<grid::TileSize>,
+    asset_server: Res<AssetServer>,
+    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+) {
+    texture_atlases.set_untracked(grid::TILE_TEXTURE_ATLAS, TextureAtlas::from_grid(
+        asset_server.get_handle("tiles.png"),
+        tile_size.deref().into(),
+        grid::Tile::all().len(),
+        1,
+    ));
+
+    let mut slicer = utils::TextureAtlasSlicer::<UiComponent>::new();
+    slicer.add(UiComponent::EdgeCorner, rect(0., 6., 5., 11.));
+    slicer.add(UiComponent::SmileyButton, rect(18., 0., 44., 26.));
+    slicer.add(UiComponent::SmileyDead, rect(0., 11., 17., 28.));
+
+    let (ui_textures, ui_indexes) = slicer.slice(asset_server.get_handle("ui.png"));
+    cmd.insert_resource(utils::SpriteSheetBundleBuilder::new(texture_atlases.add(ui_textures), ui_indexes));
+
     let _ = state.set(game::GameState::Start);
 }
 

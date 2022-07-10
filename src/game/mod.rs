@@ -1,12 +1,12 @@
 pub use game::*;
-pub use ui::*;
 
 pub mod grid;
 mod game;
-mod ui;
+pub mod ui;
 
 /// Resource
 #[allow(dead_code)]
+#[derive(Debug)]
 pub(crate) enum Difficulty {
     Beginner,
     Intermediate,
@@ -38,6 +38,12 @@ impl Difficulty {
             Expert => 100,
             Custom { size: _, mines } => *mines,
         };
+    }
+
+    #[inline(always)]
+    pub fn change(&mut self, set: Self) {
+        println!("change difficulty {:?}", set);
+        *self = set;
     }
 }
 

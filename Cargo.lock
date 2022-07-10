@@ -418,14 +418,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bevy_icon"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "winit",
-]
-
-[[package]]
 name = "bevy_input"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -748,6 +740,14 @@ dependencies = [
  "bevy_utils",
  "raw-window-handle",
  "web-sys",
+]
+
+[[package]]
+name = "bevy_window_icon"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "winit",
 ]
 
 [[package]]
@@ -1928,7 +1928,7 @@ name = "minesweeper"
 version = "0.1.0"
 dependencies = [
  "bevy",
- "bevy_icon",
+ "bevy_window_icon",
  "rand",
  "winit",
 ]

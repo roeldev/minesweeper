@@ -4,7 +4,7 @@ pub(crate) use tile::*;
 mod grid;
 mod tile;
 
-#[derive(Copy, Clone)]
+#[derive(Clone, Copy, Debug)]
 pub(crate) struct GridSize(usize, usize);
 
 impl GridSize {
@@ -20,4 +20,9 @@ impl GridSize {
 
     #[inline(always)]
     pub fn capacity(&self) -> usize { self.0 * self.1 }
+
+    #[inline(always)]
+    pub fn index_of(&self, col: usize, row: usize) -> usize {
+        col + (row * self.columns())
+    }
 }

@@ -1,4 +1,4 @@
-use bevy::prelude::{Component, Entity, Vec2};
+use bevy::prelude::{Commands, Component, Entity, TransformBundle, Vec2};
 
 use super::*;
 
@@ -16,12 +16,15 @@ pub(crate) struct Grid {
 }
 
 impl Grid {
-    pub fn new(grid_size: GridSize, tile_size: Vec2) -> Self {
-        Self {
-            grid_size,
-            tile_size,
-            tiles: vec![None; grid_size.capacity()],
-        }
+    #[inline]
+    pub fn spawn(cmd: &mut Commands, grid_size: GridSize, tile_size: Vec2) -> Entity {
+        cmd.spawn_bundle(
+            TransformBundle::default())
+            .insert(Self {
+                grid_size,
+                tile_size,
+                tiles: vec![None; grid_size.capacity()],
+            }).id()
     }
 
     #[inline(always)]
@@ -46,6 +49,7 @@ impl Grid {
 
         self.grid_size = grid_size;
         if have < want {
+            self.tiles.resize(want, None);
             return ResizeResult::Grow(want - have);
         }
 
@@ -58,10 +62,9 @@ impl Grid {
         self.tiles.truncate(self.capacity());
         ResizeResult::Shrink(shrink)
     }
-
     #[inline]
     pub(crate) fn insert(&mut self, col: usize, row: usize, entity: Entity) {
-        self.tiles[col + (row * self.grid_size.columns())] = Some(entity);
+        self.tiles[self.grid_size.index_of(col, row)] = Some(entity);
     }
 
     #[inline]
@@ -70,9 +73,15 @@ impl Grid {
             return None;
         }
 
-        self.tiles[col + (row * self.grid_size.columns())]
+        let index = self.grid_size.index_of(col, row);
+        if index >= self.tiles.len() {
+            return None;
+        }
+
+        self.tiles[index]
     }
 
+    #[inline]
     pub fn get_tile_xy(&self, x: f32, y: f32) -> Option<Entity> {
         if x < 0. || y < 0. {
             return None;
